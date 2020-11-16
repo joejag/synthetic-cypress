@@ -1,4 +1,6 @@
 {
   "fixturesFolder": false,
-  "pluginsFile": false
+  "pluginsFile": false,
+  "supportFile": false,
+  "videoCompression": 15
 }
