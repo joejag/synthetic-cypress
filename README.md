@@ -2,7 +2,7 @@
 
 > Run Cypress via cron inside a http service
 
-Run with `npm run start` which starts a service on port 3000.
+Run with `node e2e-tests.js` which starts a service on port 3000.
 
 ## What does this do?
 

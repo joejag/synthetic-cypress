@@ -2,6 +2,7 @@ const cypress = require('cypress')
 const cron = require('node-cron')
 const serveIndex = require('serve-index')
 const express = require('express')
+
 const app = express()
 
 let currentSummary = {}
