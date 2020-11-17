@@ -2,5 +2,12 @@
   "fixturesFolder": false,
   "pluginsFile": false,
   "supportFile": false,
-  "videoCompression": 15
+  "videoCompression": 15,
+  "reporter": "mochawesome",
+  "reporterOptions": {
+    "reportDir": "cypress/results",
+    "overwrite": false,
+    "html": false,
+    "json": true
+  }
 }
