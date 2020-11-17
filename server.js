@@ -28,35 +28,7 @@ let currentSummary = { runs: [] };
 app.get("/", (req, res) => {
   res.setHeader("content-type", "application/json");
   const baseUrl = req.protocol + "://" + req.get("Host");
-
-  const tests = [];
-  currentSummary.runs.forEach((run) => {
-    const videoLink = baseUrl + run.video.split("/").slice(-1)[0];
-
-    run.tests.forEach((test) => {
-      const title = test.title.join(" | ");
-      const state = test.state;
-      tests.push({ title, state, videoLink });
-    });
-  });
-
-  const result = {
-    lastRun: {
-      startedTestsAt: currentSummary.startedTestsAt,
-      endedTestsAt: currentSummary.endedTestsAt,
-      totalDuration: currentSummary.totalDuration,
-      totalSuites: currentSummary.totalSuites,
-      totalTests: currentSummary.totalTests,
-      totalFailed: currentSummary.totalFailed,
-      totalPassed: currentSummary.totalPassed,
-      totalPending: currentSummary.totalPending,
-      totalSkipped: currentSummary.totalSkipped,
-      tests,
-    },
-    statusPageLink: baseUrl + "/status/mochawesome.html",
-    videosLink: baseUrl + "/videos",
-    screenshotsLink: baseUrl + "/screenshots",
-  };
+  const result = summaryAsJson(currentSummary, baseUrl);
   res.send(JSON.stringify(result, null, 4));
 });
 
@@ -79,48 +51,83 @@ app.use("/status", serveIndex(__dirname + "/mochawesome-report"));
 app.use("/status", express.static(__dirname + "/mochawesome-report"));
 
 // Run every minute
-cron.schedule("* * * * *", function () {
+cron.schedule("* * * * *", () => {
   console.log("Running tests...");
 
-  fse.remove("cypress/results").then(() => {
-    runTests((summary) => {
-      currentSummary = summary;
-      fse
-        .remove("mochawesome-report")
-        .then(() => merge({ files: ["cypress/results/*.json"] }))
-        .then((r) => generator.create(r));
-
-      // set guages
-      let allPassing = true;
-      currentSummary.runs.forEach((run) => {
-        run.tests.forEach((test) => {
-          const title = test.title.join(" | ");
-          const duration = test.attempts[0].duration;
-          let state = 0;
-          if (test.state === "passed") state = 1;
-          if (test.state === "failed") state = -1;
-          if (test.state === "failed") allPassing = false;
-
-          scenarioStatusGauge.set({ scenario: title }, state);
-          scenarioTimingGuage.set({ scenario: title }, duration);
-        });
-      });
-
-      scenarioStatusGauge.set({ scenario: "rollup" }, allPassing ? 1 : -1);
-    });
-  });
+  fse
+    .remove("cypress/results")
+    .then(() => runTests())
+    .then((summary) => (currentSummary = summary))
+    .then(() => generateHtmlReport())
+    .then(() => updateGuages(currentSummary));
 });
 
-const runTests = (cb) => {
-  cypress
-    .run({
-      quiet: true,
-      config: {
-        video: true,
-      },
-      specs: "./cypress/integration/*-spec.js",
-    })
-    .then((runsResults) => {
-      cb(runsResults);
+const runTests = () => {
+  return cypress.run({
+    quiet: true,
+    config: {
+      video: true,
+    },
+    specs: "./cypress/integration/*-spec.js",
+  });
+};
+
+const generateHtmlReport = () => {
+  return fse
+    .remove("mochawesome-report")
+    .then(() => merge({ files: ["cypress/results/*.json"] }))
+    .then((r) => generator.create(r))
+    .then(() => updateGuages(currentSummary));
+};
+
+const summaryAsJson = (results, baseUrl) => {
+  const tests = [];
+  results.runs.forEach((run) => {
+    const videoLink = baseUrl + "/videos/" + run.video.split("/").slice(-1)[0];
+
+    run.tests.forEach((test) => {
+      const title = test.title.join(" | ");
+      const state = test.state;
+      tests.push({ title, state, videoLink });
     });
+  });
+
+  return {
+    lastRun: {
+      startedTestsAt: currentSummary.startedTestsAt,
+      endedTestsAt: currentSummary.endedTestsAt,
+      totalDuration: currentSummary.totalDuration,
+      totalSuites: currentSummary.totalSuites,
+      totalTests: currentSummary.totalTests,
+      totalFailed: currentSummary.totalFailed,
+      totalPassed: currentSummary.totalPassed,
+      totalPending: currentSummary.totalPending,
+      totalSkipped: currentSummary.totalSkipped,
+      tests,
+    },
+    statusPageLink: baseUrl + "/status/mochawesome.html",
+    videosLink: baseUrl + "/videos",
+    screenshotsLink: baseUrl + "/screenshots",
+    metricsLink: baseUrl + "/metrics",
+  };
+};
+
+const updateGuages = (results) => {
+  let allPassing = true;
+
+  results.runs.forEach((run) => {
+    run.tests.forEach((test) => {
+      const title = test.title.join(" | ");
+      const duration = test.attempts[0].duration;
+      let state = 0;
+      if (test.state === "passed") state = 1;
+      if (test.state === "failed") state = -1;
+      if (test.state === "failed") allPassing = false;
+
+      scenarioStatusGauge.set({ scenario: title }, state);
+      scenarioTimingGuage.set({ scenario: title }, duration);
+    });
+  });
+
+  scenarioStatusGauge.set({ scenario: "rollup" }, allPassing ? 1 : -1);
 };
