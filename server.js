@@ -24,9 +24,22 @@ const app = express();
 const metricsMiddleware = promBundle({ includeMethod: true });
 app.use(metricsMiddleware);
 
-let currentSummary = {};
+let currentSummary = { runs: [] };
 app.get("/", (req, res) => {
   res.setHeader("content-type", "application/json");
+  const baseUrl = req.protocol + "://" + req.get("Host");
+
+  const tests = [];
+  currentSummary.runs.forEach((run) => {
+    const videoLink = baseUrl + run.video.split("/").slice(-1)[0];
+
+    run.tests.forEach((test) => {
+      const title = test.title.join(" | ");
+      const state = test.state;
+      tests.push({ title, state, videoLink });
+    });
+  });
+
   const result = {
     lastRun: {
       startedTestsAt: currentSummary.startedTestsAt,
@@ -38,10 +51,11 @@ app.get("/", (req, res) => {
       totalPassed: currentSummary.totalPassed,
       totalPending: currentSummary.totalPending,
       totalSkipped: currentSummary.totalSkipped,
+      tests,
     },
-    statusPageLink: "http://localhost:3000/status/mochawesome.html",
-    videosLink: "http://localhost:3000/videos",
-    screenshotsLink: "http://localhost:3000/screenshots",
+    statusPageLink: baseUrl + "/status/mochawesome.html",
+    videosLink: baseUrl + "/videos",
+    screenshotsLink: baseUrl + "/screenshots",
   };
   res.send(JSON.stringify(result, null, 4));
 });
@@ -77,9 +91,22 @@ cron.schedule("* * * * *", function () {
         .then((r) => generator.create(r));
 
       // set guages
-      scenarioStatusGauge.set({ scenario: "rollup" }, 1);
-      scenarioStatusGauge.set({ scenario: "test name" }, 1);
-      scenarioTimingGuage.set({ scenario: "test name" }, 123);
+      let allPassing = true;
+      currentSummary.runs.forEach((run) => {
+        run.tests.forEach((test) => {
+          const title = test.title.join(" | ");
+          const duration = test.attempts[0].duration;
+          let state = 0;
+          if (test.state === "passed") state = 1;
+          if (test.state === "failed") state = -1;
+          if (test.state === "failed") allPassing = false;
+
+          scenarioStatusGauge.set({ scenario: title }, state);
+          scenarioTimingGuage.set({ scenario: title }, duration);
+        });
+      });
+
+      scenarioStatusGauge.set({ scenario: "rollup" }, allPassing ? 1 : -1);
     });
   });
 });
