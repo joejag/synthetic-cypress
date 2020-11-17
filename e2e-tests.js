@@ -8,6 +8,18 @@ const { merge } = require("mochawesome-merge");
 const generator = require("mochawesome-report-generator");
 const fse = require("fs-extra");
 
+const scenarioStatusGauge = new client.Gauge({
+  name: "scenario_status",
+  help: "Indicates if the tests are passing(1), failing(-1) or not run(0)",
+  labelNames: ["scenario"],
+});
+
+const scenarioTimingGuage = new client.Gauge({
+  name: "scenario_timing",
+  help: "How long a scenario took to run in seconds",
+  labelNames: ["scenario"],
+});
+
 const app = express();
 const metricsMiddleware = promBundle({ includeMethod: true });
 app.use(metricsMiddleware);
@@ -44,7 +56,7 @@ app.listen(PORT, () => {
   console.log(`Synthetic Cypress listening at http://localhost:${PORT}`);
 });
 
-// Enable directory lists of videos
+// Enable directory lists of videos, screenshots and the test report
 app.use("/videos", serveIndex(__dirname + "/cypress/videos"));
 app.use("/videos", express.static(__dirname + "/cypress/videos"));
 app.use("/screenshots", serveIndex(__dirname + "/cypress/screenshots"));
@@ -65,6 +77,9 @@ cron.schedule("* * * * *", function () {
         .then((r) => generator.create(r));
 
       // set guages
+      scenarioStatusGauge.set({ scenario: "rollup" }, 1);
+      scenarioStatusGauge.set({ scenario: "test name" }, 1);
+      scenarioTimingGuage.set({ scenario: "test name" }, 123);
     });
   });
 });
@@ -82,18 +97,3 @@ const runTests = (cb) => {
       cb(runsResults);
     });
 };
-
-const scenarioStatusGauge = new client.Gauge({
-  name: "scenario_status",
-  help: "Indicates if the tests are passing(1), failing(-1) or not run(0)",
-  labelNames: ["scenario"],
-});
-scenarioStatusGauge.set({ scenario: "rollup" }, 1);
-scenarioStatusGauge.set({ scenario: "test name" }, 1);
-
-const scenarioTimingGuage = new client.Gauge({
-  name: "scenario_timing",
-  help: "How long a scenario took to run in seconds",
-  labelNames: ["scenario"],
-});
-scenarioTimingGuage.set({ scenario: "test name" }, 123);
