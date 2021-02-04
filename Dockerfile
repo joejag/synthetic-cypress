@@ -8,4 +8,4 @@ ENV CI=1
 RUN npx cypress install
 
 EXPOSE 3000
-CMD node e2e-tests.js
+CMD node server.js
