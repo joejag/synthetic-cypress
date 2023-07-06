@@ -1,0 +1,19 @@
+#!/bin/bash
+#===============================================================================
+#
+#          FILE:  docker_rm.sh
+# 
+#         USAGE:  ./docker_rm.sh 
+# 
+#   DESCRIPTION:  Stop and remove the docker container
+# 
+#       OPTIONS:  ---
+#  REQUIREMENTS:  ---
+#          BUGS:  ---
+#         NOTES:  ---
+#       VERSION:  1.0
+#       CREATED:  07/07/2023 21:54:04 BST
+#      REVISION:  ---
+#===============================================================================
+
+docker rm -f synthetic-cypress

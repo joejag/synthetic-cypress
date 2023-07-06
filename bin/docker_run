@@ -1,0 +1,19 @@
+#!/bin/bash
+#===============================================================================
+#
+#          FILE:  docker_run
+# 
+#         USAGE:  ./docker_run
+# 
+#   DESCRIPTION:  Run the docker container
+# 
+#       OPTIONS:  ---
+#  REQUIREMENTS:  ---
+#          BUGS:  ---
+#         NOTES:  ---
+#       VERSION:  1.0
+#       CREATED:  07/07/2023 21:53:25 BST
+#      REVISION:  ---
+#===============================================================================
+
+docker run --name synthetic-cypress -p 3000:3000 synthetic-cypress

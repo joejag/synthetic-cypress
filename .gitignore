@@ -1,5 +1,10 @@
 node_modules
+package-lock.json
 cypress/screenshots
 cypress/videos
+cypress/results
 .DS_Store
+*.swp
 mochawesome-report
+.idea
+npm-debug.log
