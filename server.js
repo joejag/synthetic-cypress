@@ -9,7 +9,7 @@ const fileSystem = require('fs-extra')
 
 // Config to be set via environment variables
 const SLEEP_MINS = process.env.SLEEP_MINS || 5
-const SPECS_REGEX = process.env.SPECS_REGEX || '/cypress/integration/*-spec.js'
+const SPECS_REGEX = process.env.SPECS_REGEX || '/cypress/e2e/*.cy.js'
 const PORT = process.env.PORT || 3000
 console.log('config', { SLEEP_MINS, SPECS_REGEX, PORT })
 
