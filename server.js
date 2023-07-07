@@ -4,14 +4,17 @@ const express = require('express')
 const promBundle = require('express-prom-bundle')
 const client = require('prom-client')
 const { merge } = require('mochawesome-merge')
+const axios = require('axios')
 const generator = require('mochawesome-report-generator')
 const fileSystem = require('fs-extra')
 
 // Config to be set via environment variables
-const SLEEP_MINS = process.env.SLEEP_MINS || 5
+const SLEEP_MINS = process.env.SLEEP_MINS || 1
 const SPECS_REGEX = process.env.SPECS_REGEX || '/cypress/e2e/*.cy.js'
 const PORT = process.env.PORT || 3000
-console.log('config', { SLEEP_MINS, SPECS_REGEX, PORT })
+const TEAMS_ALERT_URL = process.env.TEAMS_ALERT_URL ||'https://feefo.webhook.office.com/webhookb2/f68e6f68-e6d1-425a-b165-4e1cbcb52024@ba89dc54-cd18-4fed-b978-3dfe890a4aa2/IncomingWebhook/d9693eac1c8c46cb9a82fe90f6723ec3/6ec7bdbb-28e8-4577-a541-5e890f8e95a8'
+const ALERT_THRESHOLD = process.env.ALERT_THREASHOLD || 3; // number of failures in a row for any given monitor required to trigger alert
+console.log('config', { SLEEP_MINS, SPECS_REGEX, PORT, TEAMS_ALERT_URL, ALERT_THRESHOLD })
 
 const app = express()
 
@@ -63,6 +66,42 @@ const generateHtmlReportWithMochawesome = () => {
     .remove('mochawesome-report')
     .then(() => merge({ files: [__dirname + '/cypress/results/*.json'] }))
     .then((r) => generator.create(r))
+}
+
+let failureRegistry = {}
+
+const updateFailureRegistryAndAlert = (results) => {
+  let alert = false
+
+  results.runs.forEach((run) => {
+    run.tests.forEach((test) => {
+      const title = test.title.join(' | ')
+      if (failureRegistry[title] == null) {
+        failureRegistry[title] = {}
+      }
+      const duration = test.attempts[0].duration
+      if (test.state === 'failed') {
+        failureRegistry[title].failures ? failureRegistry[title].failures += 1 : failureRegistry[title].failures = 1
+        console.log(`failure: ${ title } test.failures = ${ failureRegistry[title].failures }`)
+        if (failureRegistry[title].failures == ALERT_THRESHOLD) {
+          console.log('trigger alert')
+          alert = true
+        }
+      } else {
+        failureRegistry[title].failures = 0
+        console.log(`success: ${ title } test.failures = ${ failureRegistry[title].failures }`)
+      }
+    })
+    if (alert) {
+      postAlertToTeams();
+    }
+  })
+}
+
+const postAlertToTeams = async () => {
+  axios.post(TEAMS_ALERT_URL,
+      { text: `Alert! Cypress Synthetic monitors had more than ${ ALERT_THRESHOLD } failures in a row.` },
+      { headers: { "Content-Type": "application/json" } })
 }
 
 const updatePrometheusGauges = (results) => {
@@ -135,8 +174,7 @@ async function runCypressInALoop() {
       .then((summary) => (CURRENT_SUMMARY = summary))
       .then(() => generateHtmlReportWithMochawesome())
       .then(() => updatePrometheusGauges(CURRENT_SUMMARY))
-
-    // You could add Slack or other notifications here
+      .then(() => updateFailureRegistryAndAlert(CURRENT_SUMMARY))
 
     await sleep(SLEEP_MINS)
   }

@@ -7,3 +7,4 @@ cypress/results
 *.swp
 mochawesome-report
 .idea
+npm-debug.log
